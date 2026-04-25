@@ -2,7 +2,7 @@ import argon2 from 'argon2';
 import crypto from 'crypto';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import type { Request } from 'express';
-import { UnauthorizedError } from './index.js';
+import { UnauthorizedError } from './errors/httpErrors.js';
 
 const DEFAULT_JWT_EXPIRES_SECONDS = 60 * 60;
 
@@ -17,18 +17,18 @@ export function checkPasswordHash(
   return argon2.verify(hashedPassword, password);
 }
 
-export function makeJWT(userID: string, secret: string): string {
-  return jwt.sign({ userID }, secret, {
+export function makeJWT(userId: string, secret: string): string {
+  return jwt.sign({ userId }, secret, {
     expiresIn: DEFAULT_JWT_EXPIRES_SECONDS,
   });
 }
 
-type payload = Pick<JwtPayload, 'iss' | 'sub' | 'iat' | 'exp'> & {
-  userID?: string;
+type JwtUserPayload = Pick<JwtPayload, 'iss' | 'sub' | 'iat' | 'exp'> & {
+  userId?: string;
 };
 
-export function validateJWT(token: string, secret: string): payload {
-  return jwt.verify(token, secret) as payload;
+export function validateJWT(token: string, secret: string): JwtUserPayload {
+  return jwt.verify(token, secret) as JwtUserPayload;
 }
 
 export function getBearerToken(req: Request): string {

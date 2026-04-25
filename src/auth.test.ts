@@ -64,32 +64,32 @@ describe('checkPasswordHash', () => {
 
 describe('makeJWT', () => {
   const secret = 'makejwt-test-secret';
-  const userID = '550e8400-e29b-41d4-a716-446655440000';
+  const userId = '550e8400-e29b-41d4-a716-446655440000';
 
   it('returns a compact JWT string (header.payload.signature)', () => {
-    const token = makeJWT(userID, secret);
+    const token = makeJWT(userId, secret);
     expect(token.split('.')).toHaveLength(3);
     expect(token.length).toBeGreaterThan(20);
   });
 
-  it('embeds userID in the payload', () => {
-    const token = makeJWT(userID, secret);
-    const decoded = jwt.decode(token) as jwt.JwtPayload & { userID?: string };
-    expect(decoded.userID).toBe(userID);
+  it('embeds userId in the payload', () => {
+    const token = makeJWT(userId, secret);
+    const decoded = jwt.decode(token) as jwt.JwtPayload & { userId?: string };
+    expect(decoded.userId).toBe(userId);
   });
 
   it('sets exp to exactly 1 hour after iat', () => {
-    const token = makeJWT(userID, secret);
+    const token = makeJWT(userId, secret);
     const decoded = jwt.decode(token) as jwt.JwtPayload;
     expect(decoded.iat).toBeDefined();
     expect(decoded.exp).toBe(decoded.iat! + 60 * 60);
   });
 
   it('produces a token that validateJWT accepts with the same secret', () => {
-    const token = makeJWT(userID, secret);
+    const token = makeJWT(userId, secret);
     const payload = validateJWT(token, secret);
-    const withUser = payload as jwt.JwtPayload & { userID?: string };
-    expect(withUser.userID).toBe(userID);
+    const withUser = payload as jwt.JwtPayload & { userId?: string };
+    expect(withUser.userId).toBe(userId);
   });
 });
 
@@ -126,20 +126,20 @@ describe('getBearerToken', () => {
 describe('validateJWT', () => {
   const secret = 'test-secret-for-jwt';
   const otherSecret = 'different-secret';
-  const userID = 'user-uuid-123';
+  const userId = 'user-uuid-123';
 
   it('returns a verified payload for a valid token', () => {
-    const token = makeJWT(userID, secret);
+    const token = makeJWT(userId, secret);
     const payload = validateJWT(token, secret);
     expect(typeof payload.iat).toBe('number');
     expect(typeof payload.exp).toBe('number');
     expect(payload.exp).toBeGreaterThan(payload.iat!);
-    const withUser = payload as jwt.JwtPayload & { userID?: string };
-    expect(withUser.userID).toBe(userID);
+    const withUser = payload as jwt.JwtPayload & { userId?: string };
+    expect(withUser.userId).toBe(userId);
   });
 
   it('rejects a token signed with a different secret', () => {
-    const token = makeJWT(userID, secret);
+    const token = makeJWT(userId, secret);
     expect(() => validateJWT(token, otherSecret)).toThrow();
   });
 
@@ -148,7 +148,7 @@ describe('validateJWT', () => {
   });
 
   it('rejects an expired token', () => {
-    const token = jwt.sign({ userID }, secret, { expiresIn: -1 });
+    const token = jwt.sign({ userId }, secret, { expiresIn: -1 });
     expect(() => validateJWT(token, secret)).toThrow();
   });
 });
