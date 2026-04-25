@@ -12,8 +12,21 @@ import {
   getUserById,
   getUserByEmail,
 } from './db/queries/users.js';
+import {
+  createRefreshToken,
+  validateRefreshToken,
+  getUserFromRefreshToken,
+  revokeRefreshToken,
+} from './db/queries/refreshTokens.js';
 import { createChirp, getChirps, getChirpById } from './db/queries/chrips.js';
-import { hashPassword, checkPasswordHash } from './auth.js';
+import {
+  hashPassword,
+  checkPasswordHash,
+  makeJWT,
+  getBearerToken,
+  validateJWT,
+  makeRefreshToken,
+} from './auth.js';
 import { users } from './db/schema.js';
 
 const migrationClient = postgres(config.db.url, { max: 1 });
@@ -26,13 +39,16 @@ const app = express();
 const PORT = 8080;
 const HOST = '::';
 
-type User = {
+type LoginRequest = {
   email: string;
   password: string;
 };
 
 type UserRow = typeof users.$inferSelect;
-type UserWithoutPassword = Omit<UserRow, 'hashed_password'>;
+type UserWithoutPassword = Omit<UserRow, 'hashed_password'> & {
+  token?: string;
+  refreshToken?: string;
+};
 
 const indexHtmlPath = path.join(__dirname, '..', 'src', 'index.html');
 const adminMetricsHtmlPath = path.join(
@@ -135,13 +151,22 @@ app.get('/api/chirps/:id', async (req, res) => {
   }
 });
 
-app.post('/api/chirps', async (req, res) => {
+app.post('/api/chirps', async (req: express.Request, res: express.Response) => {
   try {
-    const userId = req.body.userId;
     const body: string = req.body.body;
-
-    if (!userId) {
-      throw new BadRequestError('User ID is required');
+    let userId: string;
+    try {
+      const token = getBearerToken(req);
+      const payload = validateJWT(token, config.api.secret);
+      if (!payload.userID) {
+        throw new UnauthorizedError('Invalid token');
+      }
+      userId = payload.userID;
+    } catch (error) {
+      if (error instanceof UnauthorizedError) {
+        throw error;
+      }
+      throw new UnauthorizedError('Invalid token');
     }
 
     const user = await getUserById(userId);
@@ -169,7 +194,7 @@ app.post('/api/chirps', async (req, res) => {
 
 app.post('/api/login', async (req, res) => {
   try {
-    const user: User = req.body;
+    const user: LoginRequest = req.body;
     const error = new UnauthorizedError('incorrect email or password');
 
     if (!user.email) throw error;
@@ -187,8 +212,21 @@ app.post('/api/login', async (req, res) => {
 
     if (!isPasswordValid) throw error;
 
+    const token = makeJWT(dbUser.id, config.api.secret);
+    const refreshToken = makeRefreshToken();
+
+    await createRefreshToken({
+      token: refreshToken,
+      userId: dbUser.id,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 60), // 60 days
+    });
+
     const { hashed_password: _hashedPassword, ...publicUser } = dbUser;
-    res.status(200).send(publicUser satisfies UserWithoutPassword);
+    res.status(200).send({
+      token,
+      refreshToken,
+      ...publicUser,
+    } satisfies UserWithoutPassword);
   } catch (error) {
     throw error;
   }
@@ -196,7 +234,7 @@ app.post('/api/login', async (req, res) => {
 
 app.post('/api/users', async (req, res) => {
   try {
-    const user: User = req.body;
+    const user: LoginRequest = req.body;
 
     if (!user.email) {
       throw new BadRequestError('Email is required');
@@ -222,6 +260,39 @@ app.post('/api/users', async (req, res) => {
   }
 });
 
+app.post('/api/refresh', async (req, res) => {
+  try {
+    const refreshToken = getBearerToken(req);
+    const isRefreshTokenValid = await validateRefreshToken(refreshToken);
+
+    if (!isRefreshTokenValid) {
+      throw new UnauthorizedError('Invalid refresh token');
+    }
+
+    const user = await getUserFromRefreshToken(refreshToken);
+
+    if (!user) {
+      throw new UnauthorizedError('Invalid refresh token');
+    }
+
+    return res
+      .status(200)
+      .send({ token: makeJWT(user.userId, config.api.secret) });
+  } catch (error) {
+    throw error;
+  }
+});
+
+app.post('/api/revoke', async (req, res) => {
+  try {
+    const refreshToken = getBearerToken(req);
+    await revokeRefreshToken(refreshToken);
+    res.status(204).send();
+  } catch (error) {
+    throw error;
+  }
+});
+
 app.use(
   (
     err: Error,
@@ -238,6 +309,7 @@ app.use(
     } else if (err instanceof NotFoundError) {
       res.status(err.statusCode).send({ error: err.message });
     } else {
+      console.error(JSON.stringify(err, null, 2));
       res
         .status(500)
         .send({ error: 'Something went wrong on our end ' + err.message });
@@ -257,7 +329,7 @@ class BadRequestError extends Error {
   }
 }
 
-class UnauthorizedError extends Error {
+export class UnauthorizedError extends Error {
   statusCode = 401;
 
   constructor(message: string) {
