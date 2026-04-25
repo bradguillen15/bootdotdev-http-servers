@@ -1,3 +1,5 @@
+import { HTTP_STATUS } from '../constants/httpStatus.js';
+
 export class HttpError extends Error {
   constructor(
     public readonly statusCode: number,
@@ -9,24 +11,24 @@ export class HttpError extends Error {
 
 export class BadRequestError extends HttpError {
   constructor(message: string) {
-    super(400, message);
+    super(HTTP_STATUS.BAD_REQUEST, message);
   }
 }
 
 export class UnauthorizedError extends HttpError {
   constructor(message: string) {
-    super(401, message);
+    super(HTTP_STATUS.UNAUTHORIZED, message);
   }
 }
 
 export class ForbiddenError extends HttpError {
   constructor(message: string) {
-    super(403, message);
+    super(HTTP_STATUS.FORBIDDEN, message);
   }
 }
 
 export class NotFoundError extends HttpError {
   constructor(message: string) {
-    super(404, message);
+    super(HTTP_STATUS.NOT_FOUND, message);
   }
 }

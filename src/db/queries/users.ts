@@ -33,3 +33,12 @@ export async function getUserByEmail(email: string) {
 export async function deleteAllUsers(): Promise<void> {
   await db.delete(users);
 }
+
+export async function updateUserIsChirpyRed(id: string, isChirpyRed: boolean) {
+  const [result] = await db
+    .update(users)
+    .set({ is_chirpy_red: isChirpyRed })
+    .where(eq(users.id, id))
+    .returning();
+  return result;
+}

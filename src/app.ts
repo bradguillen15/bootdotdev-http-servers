@@ -7,19 +7,24 @@ import { createAdminRoutes } from './routes/adminRoutes.js';
 import { createChirpRoutes } from './routes/chirpRoutes.js';
 import { createAuthRoutes } from './routes/authRoutes.js';
 import { createUserRoutes } from './routes/userRoutes.js';
+import { createWebhookRoutes } from './routes/webhookRoutes.js';
 
 export function createApp(): express.Express {
   const app = express();
 
   app.use(middlewareLogResponses);
   app.use(express.json());
-  app.use('/app', middlewareMetricsInc);
 
+  app.use('/app', middlewareMetricsInc);
   app.use('/app', createStaticRoutes());
+
   app.use('/admin', createAdminRoutes());
+
   app.use('/api', createChirpRoutes());
   app.use('/api', createAuthRoutes());
   app.use('/api', createUserRoutes());
+  app.use('/api', createWebhookRoutes());
+
   app.use(errorHandler);
 
   return app;

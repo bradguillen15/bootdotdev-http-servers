@@ -16,6 +16,7 @@ import {
 import { UnauthorizedError } from '../errors/httpErrors.js';
 import { users } from '../db/schema.js';
 import { REFRESH_TOKEN_TTL_MS } from '../constants/api.js';
+import { HTTP_STATUS } from '../constants/httpStatus.js';
 
 type CredentialsInput = {
   email: string;
@@ -27,6 +28,17 @@ type UserWithoutPassword = Omit<UserRow, 'hashed_password'> & {
   token?: string;
   refreshToken?: string;
 };
+type UserResponse = Omit<UserWithoutPassword, 'is_chirpy_red'> & {
+  isChirpyRed: boolean;
+};
+
+function mapUserResponse(user: UserWithoutPassword): UserResponse {
+  const { is_chirpy_red: isChirpyRed, ...rest } = user;
+  return {
+    ...rest,
+    isChirpyRed,
+  };
+}
 
 export function createAuthRoutes(): Router {
   const router = Router();
@@ -64,11 +76,11 @@ export function createAuthRoutes(): Router {
     });
 
     const { hashed_password: _hashedPassword, ...publicUser } = dbUser;
-    res.status(200).send({
+    res.status(HTTP_STATUS.OK).send({
       token,
       refreshToken,
-      ...publicUser,
-    } satisfies UserWithoutPassword);
+      ...mapUserResponse(publicUser),
+    });
   });
 
   router.post('/refresh', async (req, res) => {
@@ -85,13 +97,13 @@ export function createAuthRoutes(): Router {
       throw new UnauthorizedError('Invalid refresh token');
     }
 
-    res.status(200).send({ token: makeJWT(user.userId, config.api.secret) });
+    res.status(HTTP_STATUS.OK).send({ token: makeJWT(user.userId, config.api.secret) });
   });
 
   router.post('/revoke', async (req, res) => {
     const refreshToken = getBearerToken(req);
     await revokeRefreshToken(refreshToken);
-    res.status(204).send();
+    res.status(HTTP_STATUS.NO_CONTENT).send();
   });
 
   return router;

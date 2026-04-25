@@ -13,6 +13,7 @@ import {
   NotFoundError,
 } from '../errors/httpErrors.js';
 import { CHIRP_MAX_LENGTH } from '../constants/api.js';
+import { HTTP_STATUS } from '../constants/httpStatus.js';
 import { PROFANITY_PATTERN } from '../constants/validation.js';
 import { AuthLocals, requireAuth } from '../middleware/requireAuth.js';
 
@@ -25,7 +26,7 @@ export function createChirpRoutes(): Router {
 
   router.get('/chirps', async (_req, res) => {
     const chirpList = await getChirps();
-    res.status(200).send(chirpList);
+    res.status(HTTP_STATUS.OK).send(chirpList);
   });
 
   router.get('/chirps/:id', async (req, res) => {
@@ -41,7 +42,7 @@ export function createChirpRoutes(): Router {
       throw new NotFoundError('Chirp not found');
     }
 
-    res.status(200).send(chirp);
+    res.status(HTTP_STATUS.OK).send(chirp);
   });
 
   router.post(
@@ -74,7 +75,7 @@ export function createChirpRoutes(): Router {
         body: cleanedBody,
       });
 
-      res.status(201).send(createdChirp);
+      res.status(HTTP_STATUS.CREATED).send(createdChirp);
     },
   );
 
@@ -98,7 +99,7 @@ export function createChirpRoutes(): Router {
 
     await deleteChirpById(chirpId);
 
-    res.status(204).send();
+    res.status(HTTP_STATUS.NO_CONTENT).send();
   });
 
   return router;

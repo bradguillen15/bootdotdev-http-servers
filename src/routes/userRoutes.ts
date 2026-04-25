@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { createUser, updateUserById } from '../db/queries/users.js';
 import { hashPassword } from '../auth.js';
+import { HTTP_STATUS } from '../constants/httpStatus.js';
 import { BadRequestError } from '../errors/httpErrors.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { users } from '../db/schema.js';
@@ -12,6 +13,17 @@ type CredentialsInput = {
 
 type UserRow = typeof users.$inferSelect;
 type UserWithoutPassword = Omit<UserRow, 'hashed_password'>;
+type UserResponse = Omit<UserWithoutPassword, 'is_chirpy_red'> & {
+  isChirpyRed: boolean;
+};
+
+function mapUserResponse(user: UserWithoutPassword): UserResponse {
+  const { is_chirpy_red: isChirpyRed, ...rest } = user;
+  return {
+    ...rest,
+    isChirpyRed,
+  };
+}
 
 export function createUserRoutes(): Router {
   const router = Router();
@@ -42,7 +54,7 @@ export function createUserRoutes(): Router {
     }
 
     const { hashed_password: _hashedPassword, ...publicUser } = createdUser;
-    res.status(201).send(publicUser satisfies UserWithoutPassword);
+    res.status(HTTP_STATUS.CREATED).send(mapUserResponse(publicUser));
   });
 
   router.put('/users', requireAuth, async (req, res) => {
@@ -67,7 +79,7 @@ export function createUserRoutes(): Router {
     }
 
     const { hashed_password: _hashedPassword, ...publicUser } = updatedUser;
-    res.status(200).send(publicUser satisfies UserWithoutPassword);
+    res.status(HTTP_STATUS.OK).send(mapUserResponse(publicUser));
   });
 
   return router;
