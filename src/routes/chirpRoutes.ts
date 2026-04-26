@@ -25,7 +25,10 @@ export function createChirpRoutes(): Router {
   const router = Router();
 
   router.get('/chirps', async (_req, res) => {
-    const chirpList = await getChirps();
+    const authorId = _req.query.authorId as string | undefined;
+    const sort = _req.query.sort as 'asc' | 'desc' | undefined;
+
+    const chirpList = await getChirps(authorId, sort);
     res.status(HTTP_STATUS.OK).send(chirpList);
   });
 
